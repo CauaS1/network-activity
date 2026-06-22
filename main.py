@@ -123,30 +123,11 @@ def packetFloodAlert():
 
             timeByHour = t1.hour # Takes only the hour of each timestamp
 
-        if timeByHour not in IpTimesSortedByHour[ip]:
-            IpTimesSortedByHour[ip][timeByHour] = 0
+            if timeByHour not in IpTimesSortedByHour[ip]:
+                IpTimesSortedByHour[ip][timeByHour] = 0
 
-        IpTimesSortedByHour[ip][timeByHour] += 1
+            IpTimesSortedByHour[ip][timeByHour] += 1
           
-
-    print(IpTimesSortedByHour)
-    i = 0
-   
-    # Checks time difference - HERE FOR TESTS
-    for i in range(len(val) -1):
-        
-        ip1 = val[i][1]
-
-        t2 = datetime.strptime(
-            val[i+1][0],
-            '%Y-%m-%d %H:%M:%S.%f'
-        )
-        ip2 = val[i+1][1]
-
-    # It takes the timestamp, strip down and see the difference of time between them
-        
-#    print(delta.total_seconds())
-
 def artificialData():
     i = 0
     while (i < 6):
@@ -166,6 +147,6 @@ def artificialData():
 
 
 table_exists()
-#snifferFunction()
+snifferFunction()
 #artificialData()
 packetFloodAlert()
