@@ -90,43 +90,51 @@ def packetFloodAlert():
 
     # Create a disctionary containing the IP and its packet timestamp 
     ipTimes = {}
-    for timestamp, ip in val:
+    for timestamp, ip in val: 
         
         if ip not in ipTimes:
             ipTimes[ip] = []
 
         ipTimes[ip].append(timestamp)
-    
-    # Add only the IPs to a list, thought there are repeted values
-    i = 0
-    ipList = []
-    while i < len(val):
-        sourceIp = val[i]
 
-        ipList.append(sourceIp[1])
+    cursor.execute(
+        "SELECT src_ip FROM network_events" 
+    )
 
-        i = i + 1
+    srcIpsFromDB = set(cursor.fetchall())
 
-    uniqueList = set(ipList) # It make that list become an unique list, without repeted value
+    IpTimesSortedByHour = {}
+    # { '1.1.1.1: { 3: 5 }} | means 5 packets were requests from IP 1.1.1.1 in the HOUR 3
 
-    # Accessing the values from the dictionary
-    for u in uniqueList:
+    for s in srcIpsFromDB: # It will navigate throught the list of unique IPS and access the dictionary 
+        tmList = ipTimes[s[0]] # the DIC contains the timestamp related to the IP, but it does not show the IP
 
-        for t in ipTimes[u]:
+        ip = s[0]
+
+        if ip not in IpTimesSortedByHour:
+            IpTimesSortedByHour[ip] = {} 
+
+
+        for t in tmList: # it will go through each timestap of the corresponding list [tm1, tm2, tm3...]
             t1 = datetime.strptime(
                 t,
                 '%Y-%m-%d %H:%M:%S.%f'
             )
 
-            print(t1)
+            timeByHour = t1.hour # Takes only the hour of each timestamp
+
+        if timeByHour not in IpTimesSortedByHour[ip]:
+            IpTimesSortedByHour[ip][timeByHour] = 0
+
+        IpTimesSortedByHour[ip][timeByHour] += 1
+          
+
+    print(IpTimesSortedByHour)
     i = 0
    
     # Checks time difference - HERE FOR TESTS
     for i in range(len(val) -1):
-        t1 = datetime.strptime(
-            val[i][0],
-            '%Y-%m-%d %H:%M:%S.%f'
-        )
+        
         ip1 = val[i][1]
 
         t2 = datetime.strptime(
