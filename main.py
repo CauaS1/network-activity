@@ -38,7 +38,7 @@ def table_exists():
 
 def snifferFunction():
     # Sniffing the enp0s3 interface for IP packets, storing is true
-    packets = sniff(iface="enp0s3", filter="ip", store=True, count=25) 
+    packets = sniff(iface="enp0s3", filter="ip", store=True, count=3) 
     protocol = ''
 
     # Fixing the timestamp from the response
@@ -88,9 +88,17 @@ def packetFloodAlert():
 
     val = cursor.fetchall()
 
-    print(val[0])
-    i = 0
+    # Create a disctionary containing the IP and its packet timestamp 
+    ipTimes = {}
+    for timestamp, ip in val:
+        
+        if ip not in ipTimes:
+            ipTimes[ip] = []
 
+        ipTimes[ip].append(timestamp)
+    
+    # Add only the IPs to a list, thought there are repeted values
+    i = 0
     ipList = []
     while i < len(val):
         sourceIp = val[i]
@@ -99,23 +107,21 @@ def packetFloodAlert():
 
         i = i + 1
 
+    uniqueList = set(ipList) # It make that list become an unique list, without repeted value
 
-    uniqueList = set(ipList) # It make that list become an unique list, without repeted values
-
-    suspiciousList = []
-
-    # Counting how many requets each IP has done and putting the suspicious one inside a list
+    # Accessing the values from the dictionary
     for u in uniqueList:
-        print(u, "has this many requests: ", ipList.count(u))
 
-        if (ipList.count(u) >= 15):
-            suspiciousList.append(u)
+        for t in ipTimes[u]:
+            t1 = datetime.strptime(
+                t,
+                '%Y-%m-%d %H:%M:%S.%f'
+            )
 
-
-    print(suspiciousList)
-
-    # Checks time difference
-    
+            print(t1)
+    i = 0
+   
+    # Checks time difference - HERE FOR TESTS
     for i in range(len(val) -1):
         t1 = datetime.strptime(
             val[i][0],
@@ -129,35 +135,29 @@ def packetFloodAlert():
         )
         ip2 = val[i+1][1]
 
-
-        #t1, ip1 = val[i]
-        #t2, ip2 = val[i+1]
-        susData = []
-        
-       # if ip1 == ip2:
-        #    delta =  (t2-t1).total_seconds()
-
-         #   susData.append(ip1)
-            
-            #if delta < 0.1:
-             #   print(f'IP {ip1} have X requests less than {delta} ms')
-
-
-  
-
-    print(set(susData))
-
-   
-    #t1 = datetime.strptime(
-     #   i,
-      #  '%Y-%m-%d %H:%M:%S.%f'
-    #)
-
     # It takes the timestamp, strip down and see the difference of time between them
         
 #    print(delta.total_seconds())
 
+def artificialData():
+    i = 0
+    while (i < 6):
+        cursor.execute("""
+            INSERT INTO network_events
+            (timestamp, src_mac, dst_mac, src_ip, dst_ip, protocol)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (f'2026-06-21 14:14:{i}.430358', '11:22:27:61:6c:f9', '08:00:27:61:6c:f9', "192.168.1.15", "0.0.0..1", "TEST")
+            )
 
-# snifferFunction()
-packetFloodAlert()
+        conn.commit() # Don't forget to commit the changes into
+
+        i = i + 1
+    
+
+
+
 table_exists()
+#snifferFunction()
+#artificialData()
+packetFloodAlert()
