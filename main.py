@@ -1,6 +1,7 @@
 from scapy.all import *
 from datetime import datetime
 import mariadb
+import log
 
 conn = mariadb.connect(
     user="root",
@@ -73,7 +74,7 @@ def table_exists():
 
 def snifferFunction():
     # Sniffing the enp0s3 interface for IP packets, storing is true
-    packets = sniff(iface="enp0s3", filter="ip", store=True, count=3) 
+    packets = sniff(iface="enp0s3", filter="ip", store=True, count=5) 
     protocol = ''
 
     # Fixing the timestamp from the response
@@ -102,6 +103,8 @@ def snifferFunction():
         dst_ip = str(packets[i][IP].dst)
         protoc = str(protocol)
 
+        log.eventLogger(src_mac, dst_mac, src_ip, dst_ip, protoc, level="info")
+
         # Inserting data into the database
             # You can use F-STRING to make the database unsafe for SQL Injection
         cursor.execute("""
@@ -114,6 +117,7 @@ def snifferFunction():
 
         conn.commit() # Don't forget to commit the changes into the db
 
+
         i = i + 1
 
 def floodPacketsAlert():
@@ -123,6 +127,7 @@ def floodPacketsAlert():
 
     val = cursor.fetchall()
 
+    print(val)
     # Create a disctionary containing the IP and its packet timestamp 
     ipTimes = {}
     for timestamp, ip in val: 
@@ -207,6 +212,7 @@ def blacklistAdd():
         
 
         if ip not in blackList and req > 50:
+            log.eventLogger(0, 0, ip, 0, 0, level="critical")
             description = f'{ip} made {req} requests within an hour'
 
             cursor.execute("""
@@ -216,6 +222,7 @@ def blacklistAdd():
             """, (description, ip))
 
             conn.commit()
+
 
 def artificialData():
     i = 0
@@ -236,7 +243,7 @@ def artificialData():
 
 
 table_exists()
-#snifferFunction()
+snifferFunction()
 #artificialData()
+floodPacketsAlert()
 blacklistAdd()
-#floodPacketsAlert()
