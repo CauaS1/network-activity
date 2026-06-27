@@ -11,6 +11,7 @@ conn = mariadb.connect(
 cursor = conn.cursor() # Tool that talks to the database
 
 def table_exists():
+    # Checks if the network_events database exits
     cursor.execute("""
         SELECT EXISTS ( \
         SELECT 1 FROM INFORMATION_SCHEMA.TABLES \
@@ -32,6 +33,7 @@ def table_exists():
         protocol VARCHAR(8)) 
     """)
         
+    # Checks if the triggered_alerts database exits
     cursor.execute("""
         SELECT EXISTS (
             SELECT 1 FROM INFORMATION_SCHEMA.TABLES 
@@ -45,16 +47,29 @@ def table_exists():
     if triggeredAlertDB == 0:
         cursor.execute("""CREATE TABLE triggered_alerts (
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        description VARCHAR(30),
+        description VARCHAR(50),
         source_ip VARCHAR(20) UNIQUE,
         request_ammount INT)  
     """)
         
+    # Checks if the blacklist_ip database exits
+    cursor.execute("""
+        SELECT EXISTS (
+            SELECT 1 FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = 'soc_lab' AND TABLE_NAME = 'blacklist_ip' 
+            ) AS table_exists
+    """) 
 
+    blacklistDB = cursor.fetchall()
+    blacklistDB = blacklistDB[0][0]
 
-
-#packet = sniff(count=5)
-#packet.summary()
+    if blacklistDB == 0:
+        cursor.execute("""CREATE TABLE blacklist_ip (
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        description VARCHAR(80),
+        source_ip VARCHAR(20) UNIQUE )
+    """)
+        
 
 def snifferFunction():
     # Sniffing the enp0s3 interface for IP packets, storing is true
@@ -101,7 +116,7 @@ def snifferFunction():
 
         i = i + 1
 
-def newEntriesAndFloodAlert():
+def floodPacketsAlert():
     cursor.execute("""
     SELECT timestamp, src_ip from network_events
     """)
@@ -122,8 +137,6 @@ def newEntriesAndFloodAlert():
     )
 
     srcIpsFromDB = set(cursor.fetchall())
-    #listOfIPs = list(srcIpsFromDB)
-    #print(lll[0][0])
 
 
     IpTimesSortedByHour = {}
@@ -151,7 +164,7 @@ def newEntriesAndFloodAlert():
 
             IpTimesSortedByHour[ip][timeByHour] += 1
 
-    # Doing the alert script 
+    # Doing the alert script -----------------------------
 
     # Inserting the alerts inside the DB | FLOOD PACKET TYPE
     for ip in srcIpsFromDB:
@@ -170,7 +183,39 @@ def newEntriesAndFloodAlert():
                 conn.commit()
         
 
-    
+def blacklistAdd():
+    cursor.execute("SELECT * FROM triggered_alerts")
+
+    alerts = cursor.fetchall() # Get all the data from triggered_alerts database
+
+    # Returned the triggered-source-ip that are the same in both tables
+    cursor.execute("""
+        SELECT triggered_alerts.source_ip FROM triggered_alerts 
+        INNER JOIN blacklist_ip
+        ON triggered_alerts.source_ip = blacklist_ip.source_ip 
+    """)
+
+    values = cursor.fetchall()
+
+    blackList = []
+    for v in values:
+        blackList.append(v[0])
+
+    for a in alerts:
+        ip = a[2] # The IP
+        req = a[3] # Request ammount
+        
+
+        if ip not in blackList and req > 50:
+            description = f'{ip} made {req} requests within an hour'
+
+            cursor.execute("""
+                INSERT INTO blacklist_ip
+                (description, source_ip)
+                VALUES (%s, %s)
+            """, (description, ip))
+
+            conn.commit()
 
 def artificialData():
     i = 0
@@ -191,6 +236,7 @@ def artificialData():
 
 
 table_exists()
-snifferFunction()
+#snifferFunction()
 #artificialData()
-newEntriesAndFloodAlert()
+blacklistAdd()
+#floodPacketsAlert()
