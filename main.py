@@ -18,10 +18,10 @@ def table_exists():
         ) AS table_exists
     """)
 
-    res = cursor.fetchall()
-    res = res[0][0]
+    networkEventsDB = cursor.fetchall()
+    networkEventsDB = networkEventsDB[0][0]
 
-    if res == 0:
+    if networkEventsDB == 0:
         cursor.execute("""CREATE TABLE network_events ( \
         packet INT AUTO_INCREMENT PRIMARY KEY, \
         timestamp VARCHAR(40),
@@ -31,6 +31,26 @@ def table_exists():
         dst_ip VARCHAR(15),
         protocol VARCHAR(8)) 
     """)
+        
+    cursor.execute("""
+        SELECT EXISTS (
+            SELECT 1 FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = 'soc_lab' AND TABLE_NAME = 'triggered_alerts' 
+            ) AS table_exists
+    """) 
+
+    triggeredAlertDB = cursor.fetchall()
+    triggeredAlertDB = triggeredAlertDB[0][0]
+
+    if triggeredAlertDB == 0:
+        cursor.execute("""CREATE TABLE triggered_alerts (
+        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        description VARCHAR(30),
+        source_ip VARCHAR(20) UNIQUE,
+        request_ammount INT)  
+    """)
+        
+
 
 
 #packet = sniff(count=5)
@@ -81,7 +101,7 @@ def snifferFunction():
 
         i = i + 1
 
-def packetFloodAlert():
+def newEntriesAndFloodAlert():
     cursor.execute("""
     SELECT timestamp, src_ip from network_events
     """)
@@ -102,6 +122,9 @@ def packetFloodAlert():
     )
 
     srcIpsFromDB = set(cursor.fetchall())
+    #listOfIPs = list(srcIpsFromDB)
+    #print(lll[0][0])
+
 
     IpTimesSortedByHour = {}
     # { '1.1.1.1: { 3: 5 }} | means 5 packets were requests from IP 1.1.1.1 in the HOUR 3
@@ -127,7 +150,28 @@ def packetFloodAlert():
                 IpTimesSortedByHour[ip][timeByHour] = 0
 
             IpTimesSortedByHour[ip][timeByHour] += 1
-          
+
+    # Doing the alert script 
+
+    # Inserting the alerts inside the DB | FLOOD PACKET TYPE
+    for ip in srcIpsFromDB:
+        for req in IpTimesSortedByHour[ip[0]].values(): # req stands for request ammount
+            if req > 5: 
+                cursor.execute("""INSERT INTO triggered_alerts
+                    (description, source_ip, request_ammount)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE 
+                    request_ammount = VALUES (request_ammount)
+                    """,
+                    ('Packet Flood',ip[0], req ))
+                
+                    # On duplicated IP, just update the REQUEST_AMOUNT
+
+                conn.commit()
+        
+
+    
+
 def artificialData():
     i = 0
     while (i < 6):
@@ -149,4 +193,4 @@ def artificialData():
 table_exists()
 snifferFunction()
 #artificialData()
-packetFloodAlert()
+newEntriesAndFloodAlert()
