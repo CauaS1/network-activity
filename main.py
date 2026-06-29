@@ -2,6 +2,7 @@ from scapy.all import *
 from datetime import datetime
 import mariadb
 import log
+import firewall
 
 conn = mariadb.connect(
     user="root",
@@ -223,6 +224,8 @@ def blacklistAdd():
 
             conn.commit()
 
+            firewall.firewallFunc(ip, 'deny', 'in')
+
 
 def artificialData():
     i = 0
@@ -243,7 +246,7 @@ def artificialData():
 
 
 table_exists()
+blacklistAdd()
 snifferFunction()
 #artificialData()
 floodPacketsAlert()
-blacklistAdd()
